@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import os
 import json
 import time
@@ -16,36 +17,35 @@ def steward(config_file_path:str, ukb_strelka2_variant_caller_path:str, send_mes
     # get paramters from the config.json
     with open(config_file_path, 'r') as config_f:
         config_d = json.load(config_f)
-    task_id            = config_d['taskId']
-    analysis_record_id = config_d['analysisRecordId']
     # make the params.json file
     params_d = {
-        'fasta'           : config_d['fasta'],
-        'fasta_index'     : config_d['fasta_index'],
-        'tumor_cram'      : config_d['tumor_cram'],
-        'tumor_cram_index': config_d['tumor_cram_index'],
-        'normal_cram'      : config_d['normal_cram'],
-        'normal_cram_index': config_d['normal_cram_index']
+        'fasta'            : config_d['ukbParams']['fasta'],
+        'fasta_index'      : config_d['ukbParams']['fasta_index'],
+        'tumor_cram'       : config_d['ukbParams']['tumor_cram'],
+        'tumor_cram_index' : config_d['ukbParams']['tumor_cram_index'],
+        'normal_cram'      : config_d['ukbParams']['normal_cram'],
+        'normal_cram_index': config_d['ukbParams']['normal_cram_index']
     }
     params_file_path = '{}/params.json'.format(analysis_path)
     with open(params_file_path, 'w') as params_f:
         json.dump(params_d, params_f, ensure_ascii=False, indent=4)
     ukb_strelka2_variant_caller_command = 'nextflow run -offline -profile singularity -bg -params-file {} {} >> run_log.txt'.format(params_file_path, ukb_strelka2_variant_caller_path)
     return_value = os.system(ukb_strelka2_variant_caller_command)
-    with open('ukb_strelka2_variant_caller_command.txt', 'w') as command_f:
-        command_f.write(ukb_strelka2_variant_caller_command + '\n')
-        command_f.write('return value:{}\n'.format(str(return_value)))
+    logging.info(ukb_strelka2_variant_caller_command)
+    logging.info('return value:{}\n'.format(str(return_value)))
     time.sleep(10)
     # send the result files 
     feedback_dict = {
-        'tTaskId'         : task_id,
-        'analysisRecordId': analysis_record_id,
-        'pipelineName'    : 'ukb_strelka2_variant_caller',
-        'analysisStatus'  : '',
-        'startDate'       : time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-        'endDate'         : '',
-        'error'           : 0,
-        'taskName'        : 'Step'
+        'uuid'          : config_d['uuid'],
+        'ukbId'         : config_d['ukbId'],
+        'ukbToolsCode'  : config_d['ukbToolsCode'],
+        'ukbToolName'   : config_d['ukbToolName'],
+        'pipeline'      : 'ukb',
+        'analysisStatus': '',
+        'startDate'     : time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+        'endDate'       : '',
+        'error'         : 0,
+        'taskName'      : 'Step'
     }
     if return_value == 0 and os.path.exists('{}/results'.format(analysis_path)):
         feedback_dict['analysisStatus'] = '分析开始'
@@ -153,8 +153,15 @@ def main() -> None:
     parser.add_argument('--send_message_script', required=True, help='the full path for the shell script: sendMessage.sh')
     args = parser.parse_args()
     config_file_path = args.cfp
+    if os.path.isabs(config_file_path):
+        pass
+    else:
+        config_file_path = os.path.abspath(os.path.basename(config_file_path))
     ukb_strelka2_variant_caller_path = args.ukb_strelka2_variant_caller_path
     send_message_script = args.send_message_script
+    # logging
+    log_file = '{}/ukb_strelka2_variant_caller.log'.format(os.path.dirname(config_file_path))
+    logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     steward(config_file_path, ukb_strelka2_variant_caller_path, send_message_script)
 
 
