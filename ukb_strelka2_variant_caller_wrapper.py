@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import json
+import sys
 import time
 
 def send_json_message(analysis_path:str, send_message_script: str, message: dict, step_file_name:str) -> None:
@@ -33,12 +34,12 @@ def steward(config_file_path:str, ukb_strelka2_variant_caller_path:str, send_mes
     return_value = os.system(ukb_strelka2_variant_caller_command)
     logging.info(ukb_strelka2_variant_caller_command)
     logging.info('return value:{}\n'.format(str(return_value)))
-    time.sleep(10)
+    time.sleep(20)
     # send the result files 
     feedback_dict = {
         'uuid'          : config_d['uuid'],
         'ukbId'         : config_d['ukbId'],
-        'ukbToolsCode'  : config_d['ukbToolsCode'],
+        'ukbToolsCode'  : config_d['ukbToolCode'],
         'ukbToolName'   : config_d['ukbToolName'],
         'pipeline'      : 'ukb',
         'analysisStatus': '',
@@ -57,6 +58,7 @@ def steward(config_file_path:str, ukb_strelka2_variant_caller_path:str, send_mes
         feedback_dict['endDate']        = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
         feedback_dict['error']          = 1
         send_json_message(analysis_path, send_message_script, feedback_dict, 'start.json')
+        sys.exit()
     flag = 0
     while True:
         execution_trace_file = '{}/results'.format(analysis_path)
